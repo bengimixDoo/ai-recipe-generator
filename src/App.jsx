@@ -1,122 +1,87 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useState } from "react";
+import { Loader, Placeholder } from "@aws-amplify/ui-react";
+import "./App.css";
+import { Amplify } from "aws-amplify";
+import { generateClient } from "aws-amplify/data";
+import outputs from "../amplify_outputs.json";
+import "@aws-amplify/ui-react/styles.css";
+
+Amplify.configure(outputs);
+
+// Không cần khai báo type <Schema> trong môi trường JS thuần
+const amplifyClient = generateClient({
+  authMode: "userPool",
+});
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [result, setResult] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  // Xóa bỏ type định dạng sự kiện (event) của TypeScript
+  const onSubmit = async (event) => {
+    event.preventDefault();
+    setLoading(true);
+
+    try {
+      const formData = new FormData(event.currentTarget);
+      
+      // Vẫn gọi qua interface askBedrock nhưng dữ liệu do Gemini xử lý
+      const { data, errors } = await amplifyClient.queries.askBedrock({
+        ingredients: [formData.get("ingredients")?.toString() || ""],
+      });
+
+      if (!errors) {
+        setResult(data?.body || "No data returned");
+      } else {
+        console.error("GraphQL Errors:", errors);
+      }
+    } catch (e) {
+      alert(`An error occurred: ${e}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
+    <main className="app-container">
+      <header className="app-header">
+        <h1>Meet Your Personal</h1>
+        <h2>Gemini Recipe AI</h2>
+        <p>
+          Simply type a few ingredients using the format ingredient1, ingredient2, 
+          etc., and Gemini AI will generate an all-new recipe on demand...
+        </p>
+      </header>
+
+      <form onSubmit={onSubmit} className="form-container">
+        <div className="search-container">
+          <input 
+            type="text" 
+            name="ingredients" 
+            placeholder="e.g. chicken, rice, garlic"
+            required 
+          />
+          <button type="submit" disabled={loading}>
+            Generate
+          </button>
         </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
+      </form>
+
+      <section className="result-container">
+        {loading ? (
+          <div className="loader-container">
+            <p>Gemini is thinking...</p>
+            <Loader size="large" />
+            <Placeholder size="large" />
+            <Placeholder size="large" />
+            <Placeholder size="large" />
+          </div>
+        ) : (
+          result && <div className="result-content">{result}</div>
+        )}
       </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+    </main>
+  );
 }
 
-export default App
+export default App;
