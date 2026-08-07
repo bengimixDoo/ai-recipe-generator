@@ -2,13 +2,17 @@ export function request(ctx) {
   const { ingredients = [] } = ctx.args;
   const prompt = `Suggest a recipe idea using these ingredients: ${ingredients.join(", ")}.`;
 
+  // CƠ CHẾ DỰ PHÒNG AN TOÀN: 
+  // Nếu hệ thống không tìm thấy biến môi trường, nó sẽ tự động dùng chuỗi Key bạn dán cứng ở dưới
+  const apiKey = ctx.env.GEMINI_API_KEY || "AQ.Ab8RN6K-MSSk-7QZJS59uqufk6bn66IC2zg-LZzwekMv6KmMxA";
+
   return {
     resourcePath: `/v1beta/models/gemini-1.5-flash:generateContent`,
     method: "POST",
     params: {
       headers: {
         "Content-Type": "application/json",
-        process.env.GEMINI_API_KEY 
+        "x-goog-api-key": apiKey
       },
       body: JSON.stringify({
         contents: [
@@ -26,24 +30,33 @@ export function request(ctx) {
 }
 
 export function response(ctx) {
-  const parsedBody = JSON.parse(ctx.result.body);
-  
-  // Bắt lỗi nếu request thất bại
+  // 1. Bắt lỗi hệ thống mạng của AWS
   if (ctx.error) {
-    return {
-      body: null,
-      error: ctx.error.message
-    };
+    return { body: null, error: `Lỗi AWS: ${ctx.error.message}` };
   }
   
-  if (parsedBody.error) {
-    return {
-      body: null,
-      error: parsedBody.error.message
-    };
+  // 2. Bắt lỗi bị Google chặn (Ví dụ: Mã Key sai sẽ trả về lỗi 403)
+  if (ctx.result.statusCode !== 200) {
+    return { body: null, error: `Google API từ chối với mã ${ctx.result.statusCode}. Vui lòng check lại API Key.` };
   }
 
-  // Bóc tách văn bản công thức nấu ăn từ cấu trúc JSON trả về của Gemini
+  // 3. Xử lý an toàn dữ liệu trả về để chống sập AppSync
+  let parsedBody;
+  try {
+    parsedBody = JSON.parse(ctx.result.body);
+  } catch (err) {
+    return { body: null, error: "Lỗi: Dữ liệu Google trả về không phải chuẩn JSON." };
+  }
+
+  if (parsedBody.error) {
+    return { body: null, error: parsedBody.error.message };
+  }
+
+  // 4. Bóc tách an toàn (tránh văng lỗi TypeError như lúc nãy)
+  if (!parsedBody.candidates || !parsedBody.candidates[0] || !parsedBody.candidates[0].content) {
+    return { body: null, error: "Google không trả về công thức nấu ăn nào." };
+  }
+
   const textContent = parsedBody.candidates[0].content.parts[0].text;
   
   return {
