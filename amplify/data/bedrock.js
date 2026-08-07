@@ -2,7 +2,7 @@ export function request(ctx) {
   const { ingredients = [] } = ctx.args;
   const prompt = `Suggest a recipe idea using these ingredients: ${ingredients.join(", ")}.`;
 
-  // CƠ CHẾ DỰ PHÒNG AN TOÀN (Lưu ý bảo mật khi push lên GitHub)
+  // Thay chuỗi bên dưới bằng API Key thật của bạn để ép chạy trực tiếp không cần đợi biến môi trường AWS
   const apiKey = ctx.env.GEMINI_API_KEY || "AIzaSyAxZVekEK36F6pHtBea5zu8J5zBd6Ga_fU";
 
   return {
@@ -29,29 +29,34 @@ export function request(ctx) {
 }
 
 export function response(ctx) {
-  // 1. Bắt lỗi hệ thống mạng của AWS
+  // 1. Nếu AWS lỗi mạng
   if (ctx.error) {
-    return { body: null, error: `Lỗi AWS: ${ctx.error.message}` };
+    return { body: null, error: `AWS Error: ${ctx.error.message}` };
   }
   
-  // 2. Bắt lỗi bị Google chặn (Ví dụ: Mã Key sai sẽ trả về lỗi 403)
+  // 2. Nếu Google trả về mã lỗi HTTP khác 200 (ví dụ 400, 403 do sai key)
   if (ctx.result.statusCode !== 200) {
-    return { body: null, error: `Google API từ chối với mã ${ctx.result.statusCode}. Vui lòng check lại API Key.` };
+    return { body: null, error: `Google từ chối (Mã ${ctx.result.statusCode}): ${ctx.result.body}` };
   }
 
-  // 3. Ép kiểu trực tiếp (TUYỆT ĐỐI KHÔNG DÙNG try...catch Ở ĐÂY)
   const parsedBody = JSON.parse(ctx.result.body);
 
+  // 3. Nếu Google trả về object lỗi bên trong JSON
   if (parsedBody.error) {
-    return { body: null, error: parsedBody.error.message };
+    return { body: null, error: `Google API Error: ${parsedBody.error.message}` };
   }
 
-  // 4. Bóc tách an toàn
-  if (!parsedBody.candidates || parsedBody.candidates.length === 0 || !parsedBody.candidates[0].content) {
-    return { body: null, error: "Google không trả về công thức nấu ăn nào." };
+  // 4. Kiểm tra an toàn tuyệt đối chống văng lỗi dòng 36
+  if (!parsedBody.candidates || parsedBody.candidates.length === 0) {
+    return { body: null, error: "Lỗi: Google không trả về candidate nào." };
   }
 
-  const textContent = parsedBody.candidates[0].content.parts[0].text;
+  const firstCandidate = parsedBody.candidates[0];
+  if (!firstCandidate.content || !firstCandidate.content.parts || firstCandidate.content.parts.length === 0) {
+    return { body: null, error: "Lỗi: Cấu trúc JSON trả về từ Google bị thiếu phần text." };
+  }
+
+  const textContent = firstCandidate.content.parts[0].text;
   
   return {
     body: textContent,
