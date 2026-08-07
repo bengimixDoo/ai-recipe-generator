@@ -2,7 +2,6 @@ export function request(ctx) {
   const { ingredients = [] } = ctx.args;
   const prompt = `Suggest a recipe idea using these ingredients: ${ingredients.join(", ")}.`;
 
-  // CƠ CHẾ DỰ PHÒNG AN TOÀN (Lưu ý bảo mật khi push lên GitHub)
   const apiKey = ctx.env.GEMINI_API_KEY || "AQ.Ab8RN6K-MSSk-7QZJS59uqufk6bn66IC2zg-LZzwekMv6KmMxA";
 
   return {
@@ -29,29 +28,32 @@ export function request(ctx) {
 }
 
 export function response(ctx) {
-  // 1. Bắt lỗi hệ thống mạng của AWS
   if (ctx.error) {
-    return { body: null, error: `Lỗi AWS: ${ctx.error.message}` };
+    return { body: null, error: `AWS Error: ${ctx.error.message}` };
   }
   
-  // 2. Bắt lỗi bị Google chặn (Ví dụ: Mã Key sai sẽ trả về lỗi 403)
   if (ctx.result.statusCode !== 200) {
-    return { body: null, error: `Google API từ chối với mã ${ctx.result.statusCode}. Vui lòng check lại API Key.` };
+    return { body: null, error: `Google API Error HTTP Code: ${ctx.result.statusCode} - Body: ${ctx.result.body}` };
   }
 
-  // 3. Ép kiểu trực tiếp (TUYỆT ĐỐI KHÔNG DÙNG try...catch Ở ĐÂY)
   const parsedBody = JSON.parse(ctx.result.body);
 
   if (parsedBody.error) {
     return { body: null, error: parsedBody.error.message };
   }
 
-  // 4. Bóc tách an toàn
-  if (!parsedBody.candidates || parsedBody.candidates.length === 0 || !parsedBody.candidates[0].content) {
-    return { body: null, error: "Google không trả về công thức nấu ăn nào." };
+  // KIỂM TRA AN TOÀN TỪNG TẦNG CHỐNG VĂNG LỖI TYPE ERROR
+  const candidates = parsedBody.candidates;
+  if (!candidates || candidates.length === 0) {
+    return { body: null, error: "Google không trả về kết quả nào (candidates rỗng)." };
   }
 
-  const textContent = parsedBody.candidates[0].content.parts[0].text;
+  const firstCandidate = candidates[0];
+  if (!firstCandidate.content || !firstCandidate.content.parts || firstCandidate.content.parts.length === 0) {
+    return { body: null, error: "Cấu trúc phản hồi từ Google bị thiếu trường content/parts." };
+  }
+
+  const textContent = firstCandidate.content.parts[0].text;
   
   return {
     body: textContent,
