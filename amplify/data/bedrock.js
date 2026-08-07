@@ -8,7 +8,7 @@ export function request(ctx) {
     params: {
       headers: {
         "Content-Type": "application/json",
-        "x-goog-api-key": "AQ.Ab8RN6KgvsPNVp11DZ_am_aIYalUqvAbwFwwXFyC-5ellhPxeA" 
+        process.env.GEMINI_API_KEY 
       },
       body: JSON.stringify({
         contents: [
