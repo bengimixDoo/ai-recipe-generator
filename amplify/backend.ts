@@ -18,10 +18,10 @@ const geminiRole = new iam.Role(appsyncApi, 'GeminiAppSyncServiceRole', {
 
 // 3. Khai báo HTTP Data Source trỏ trực tiếp sang Google Gemini từ CDK
 appsyncApi.addHttpDataSource(
-  'geminiDS',
+  'geminiHttpDS',
   'https://generativelanguage.googleapis.com',
   {
-    name: 'geminiDS',
+    name: 'geminiHttpDS',
     description: 'Data Source for Google Gemini API',
     serviceRole: geminiRole, // Gán role vừa khởi tạo ở trên
   }

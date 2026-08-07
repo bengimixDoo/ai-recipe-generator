@@ -14,7 +14,7 @@ const schema = a.schema({
     .handler(
       a.handler.custom({ 
         entry: "./bedrock.js", 
-        dataSource: "geminiDS" // <-- Trỏ sang nguồn dữ liệu mới tại đây
+        dataSource: "geminiHttpDS"" // <-- Trỏ sang nguồn dữ liệu mới tại đây
       })
     ),
 });
